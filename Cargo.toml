@@ -1,0 +1,14 @@
+[package]
+name = "oxy-python"
+version = "0.1.0"
+authors = ["Andrew <3865404+andrewgrz@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rustyline = "5.0.2"
+
+[[bin]]
+name = "oxy-py"
+path = "src/bin.rs"
