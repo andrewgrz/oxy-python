@@ -88,7 +88,6 @@ pub type LexResult = Result<Vec<Token>, LexError>;
 pub fn lex(string: &str) -> LexResult {
     use TokenType::*;
     let mut result: Vec<Token> = Vec::new();
-    let mut p = 0;
     let mut chars = string.chars();
     let mut maybe_c: Option<char> = chars.next();
     let mut column = 1;
