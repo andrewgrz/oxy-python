@@ -1,6 +1,8 @@
 //! The lexer module holds functions and structs
 //! that assist with lexing a python program
 
+use std::str::Chars;
+
 /// A location in the file
 #[derive(Debug)]
 pub struct Location {
@@ -78,6 +80,8 @@ pub type LexResult = Result<Vec<Token>, LexError>;
 /// Lex this string.
 ///
 /// ```
+/// extern crate oxy_python;
+/// use oxy_python::parser::lex;
 /// let example = "2+2";
 /// let result = lex(example);
 /// ```
@@ -130,6 +134,10 @@ pub fn lex(string: &str) -> LexResult {
                         }
                         continue;
                     }
+                    _ if c.is_alphabetic() => {
+                        let s = take_until(maybe_c, &mut chars, |x| x.is_alphabetic());
+                        push_tok!(check_keyword(s), s.len() as u64)
+                    }
                     ' ' => {}
                     '/' => push_tok!(Slash, 1),
                     _ => {
@@ -147,6 +155,37 @@ pub fn lex(string: &str) -> LexResult {
     }
 
     Ok(result)
+}
+
+fn check_keyword(s: String) -> TokenType {
+    match s.as_str() {
+        "if" => TokenType::If,
+        "else" => TokenType::Else,
+        _ => TokenType::Name(s),
+    }
+}
+
+fn take_until<P>(mut maybe_c: Option<char>, chars: &mut Chars, mut predicate: P) -> String
+where
+    P: FnMut(&char) -> bool,
+{
+    let mut data = String::new();
+
+    loop {
+        match maybe_c {
+            Some(c) => {
+                if predicate(&c) {
+                    data.push(c);
+                    maybe_c = chars.next();
+                } else {
+                    break;
+                }
+            }
+            None => break,
+        }
+    }
+
+    data
 }
 
 #[cfg(test)]
@@ -169,7 +208,7 @@ mod tests {
     }
 
     macro_rules! lex_test {
-        ($s: expr, $( $x:ident ),*) => {{
+        ($s: expr, $( $x:expr ),*) => {{
             let mut temp_vec = Vec::new();
             $(
                 temp_vec.push($x);
@@ -203,6 +242,17 @@ mod tests {
         lex_test!("/", Slash);
         lex_test!("if", If);
         lex_test!("else", Else);
+    }
+
+    #[test]
+    fn test_name_token() {
+        use super::TokenType::*;
+        lex_test!("test", Name("test".to_owned()));
+        lex_test!(
+            "test tested",
+            Name("test".to_owned()),
+            Name("tested".to_owned())
+        );
     }
 
     #[test]
