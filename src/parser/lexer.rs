@@ -67,8 +67,8 @@ pub enum TokenType {
 }
 
 /// An error thrown when lexing fails
+#[derive(Debug)]
 pub enum LexError {
-    UnexpectedEndOfFile,
     UnexpectedToken(char, Location, Location),
 }
 
@@ -115,7 +115,22 @@ pub fn lex(string: &str) -> LexResult {
                 match c {
                     '+' => push_tok!(Plus, 1),
                     '-' => push_tok!(Minus, 1),
-                    '*' => push_tok!(Star, 1),
+                    '*' => {
+                        advance!();
+                        if let Some(n) = maybe_c {
+                            match n {
+                                '*' => {
+                                    push_tok!(StarStar, 2);
+                                    advance!();
+                                }
+                                _ => push_tok!(Star, 1),
+                            }
+                        } else {
+                            push_tok!(Star, 1)
+                        }
+                        continue;
+                    }
+                    ' ' => {}
                     '/' => push_tok!(Slash, 1),
                     _ => {
                         return Err(LexError::UnexpectedToken(
@@ -141,14 +156,14 @@ mod tests {
     macro_rules! print_diff {
         ($s: expr, $expected: expr, $actual: expr) => {{
             println!("Error! Expected did not equal Actual for: '{}'", $s);
+            println!("Excepted: {:?}", $expected);
             println!(
-                "Excepted: {:?}",
-                $expected
+                "Actual:   {:?}",
+                $actual
                     .into_iter()
                     .map(|x| x.token_type.clone())
                     .collect::<Vec<TokenType>>()
             );
-            println!("Actual:   {:?}", $actual);
             panic!();
         }};
     }
@@ -160,28 +175,41 @@ mod tests {
                 temp_vec.push($x);
             )*
 
-            if let Ok(result) = lex($s) {
+            match lex($s) {
+            Ok(result) =>  {
                 if result.len() != temp_vec.len() {
-                    print_diff!($s, &result, &temp_vec)
+                    print_diff!($s, &temp_vec, &result)
                 } else {
                     for (index, value) in result.iter().enumerate() {
                         if !value.is_type(&temp_vec[index]) {
-                            print_diff!($s, &result, &temp_vec)
+                            print_diff!($s, &temp_vec, &result)
                         }
                     }
                 }
-            } else {
-                panic!("Did not lex correctly. {}", $s);
+            } Err(e) => {
+                panic!("Did not lex correctly. {}. Received: {:?}", $s, e);
             }
+    }
         }};
     }
 
     #[test]
     fn test_lex_1_token() {
         use super::TokenType::*;
+        lex_test!("**", StarStar);
         lex_test!("+", Plus);
         lex_test!("-", Minus);
         lex_test!("*", Star);
         lex_test!("/", Slash);
+        lex_test!("if", If);
+        lex_test!("else", Else);
+    }
+
+    #[test]
+    fn test_lex_multi_token() {
+        use super::TokenType::*;
+        lex_test!("* *", Star, Star);
+        lex_test!("+ *", Plus, Star);
+        lex_test!("*-", Star, Minus);
     }
 }
